@@ -95,9 +95,9 @@ services:
       nifinet:
         aliases:
           - dkrypt-nifi
-      deploy:
-        mode: replicated
-        replicas: 1
+    deploy:
+      mode: replicated
+      replicas: 1
   rp-nginx:
     image: nginx:1.20.0
     hostname: rp-nginx
