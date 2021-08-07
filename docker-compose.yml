@@ -5,7 +5,7 @@ services:
     hostname: nifi-ca
     ports:
       - "9999"
-    entrypoint: : 
+    entrypoint:
       - "/bin/sh"
       - -ce
       - |
