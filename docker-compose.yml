@@ -1,123 +1,123 @@
 version: 3
 services:
-	nifi-ca:
-		image: apache/nifi-toolkit:1.14.0
-		hostname: nifi-ca
-		ports:
-			- "9999"
-		entrypoint: : 
-			- "/bin/sh"
-			- -ce
-			- |
-					if [ -e "/opt/nifi-toolkit/certs/config.json" ];
-					then
-						echo 'config.json found @ /opt/nifi-toolkit/certs'
-						cd /opt/nifi-toolkit/certs
-						exec ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh server \
-						--configJsonIn "config.json" \
-						--configJson "config.json" \
-						--useConfigJson
-					else
-						fqdn=$(hostname -f)
-						cd /opt/nifi-toolkit/certs
-						exec ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh server \
-						--keyAlgorithm "RSA" \
-						--certificateAuthorityHostname ${fqdn} \
-						--days 1095 \
-						--dn "CN=${fqdn}, OU=NIFI" \
-						--keySize 2048 \
-						-p 9999 \
-						--signingAlgorithm SHA256WITHRSA \
-						--keystoreType "JKS" \
-						--token "sample-token"
-					fi
-		volumes:
-			- /data/nifi-ca:/opt/nifi-toolkit/certs
-		networks:
-			nifinet:
-				aliases:
-					- nifi-ca
-		deploy:
-			mode: replicated
-			replicas: 1
+  nifi-ca:
+    image: apache/nifi-toolkit:1.14.0
+    hostname: nifi-ca
+    ports:
+      - "9999"
+    entrypoint: : 
+      - "/bin/sh"
+      - -ce
+      - |
+          if [ -e "/opt/nifi-toolkit/certs/config.json" ];
+          then
+            echo 'config.json found @ /opt/nifi-toolkit/certs'
+            cd /opt/nifi-toolkit/certs
+            exec ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh server \
+            --configJsonIn "config.json" \
+            --configJson "config.json" \
+            --useConfigJson
+          else
+            fqdn=$(hostname -f)
+            cd /opt/nifi-toolkit/certs
+            exec ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh server \
+            --keyAlgorithm "RSA" \
+            --certificateAuthorityHostname ${fqdn} \
+            --days 1095 \
+            --dn "CN=${fqdn}, OU=NIFI" \
+            --keySize 2048 \
+            -p 9999 \
+            --signingAlgorithm SHA256WITHRSA \
+            --keystoreType "JKS" \
+            --token "sample-token"
+          fi
+    volumes:
+      - /data/nifi-ca:/opt/nifi-toolkit/certs
+    networks:
+      nifinet:
+        aliases:
+          - nifi-ca
+    deploy:
+      mode: replicated
+      replicas: 1
   dkrypt-nifi:
-		image: dkrypt-nifi:1.0.0
-		hostname: dkrypt-nifi
-		ports:
-			- "18443:8443"
-			- "10080:80"
-		environment:
-			NIFI_JVM_HEAP_INIT: 512m
-			NIFI_JVM_HEAP_MAX: 512m
-			NIFI_WEB_HTTPS_PORT: 8443
-			NIFI_WEB_HTTPS_HOST: dkrypt-nifi
-			NIFI_WEB_PROXY_HOST: "dkrypt-nifi, localhost"
-			NIFI_REMOTE_INPUT_HOST: dkrypt-nifi
-			NIFI_REMOTE_INPUT_SOCKET_PORT: 1026
-			NIFI_CLUSTER_LB_PORT: 6342
-			NIFI_CLUSTER_IS_NODE: 'true'
-			NIFI_CLUSTER_ADDRESS: dkrypt-nifi
-			NIFI_CLUSTER_NODE_PROTOCOL_PORT: 9001
-			NIFI_ZK_CONNECT_STRING: dkrypt-nifi:2181
-			NIFI_ZK_ROOT_NODE: /nifi
-			NIFI_ELECTION_MAX_WAIT: "1 mins"
-			NIFI_ELECTION_MAX_CANDIDATES: 1
-			NIFI_STATE_MANAGEMENT_PROVIDER_LOCAL: local-provider
-			NIFI_STATE_MANAGEMENT_PROVIDER_CLUSTER: zk-provider
-			NIFI_STATE_MANAGEMENT_EMBEDDED_ZK_START: 'true'
-			NIFI_STATE_MANAGEMENT_EMBEDDED_ZK_PROPERTIES: ./conf/zookeeper.properties
-			NIFI_SENSITIVE_PROPS_KEY: sample-key
-			NIFI_SENSITIVE_PROPS_ALGO: NIFI_PBKDF2_AES_GCM_256
-			NIFI_SENSITIVE_PROPS_PROVIDER: BC
-			AUTH: oidc
-			NIFI_NODE_CERTS_DIR: /opt/nifi/nifi-current/node-certs
-			NIFI_CA_SERVER_HOST: nifi-ca
-			NIFI_CA_SERVER_PORT: 9999
-			NIFI_CA_TOKEN: token-tls-toolkit
-			CA_SANS: "localhost, 127.0.0.1, dkrypt-nifi"
-			SECURITY_USER_OIDC_DISCOVERY_URL: https://accounts.google.com/.well-known/openid-configuration
-			SECURITY_USER_OIDC_CONNECT_TIMEOUT: "10 secs"
-			SECURITY_USER_OIDC_READ_TIMEOUT: "10 secs"
-			SECURITY_USER_OIDC_CLIENT_ID: sample-google-client-id
-			SECURITY_USER_OIDC_CLIENT_SECRET: "sample-google-client-secret"
-			SECURITY_USER_OIDC_SCOPES: email
-			INITAL_ADMIN_IDENTITY: "email@gmail.com"
-			NODE_IDENTITIES: "dkrypt-nifi"
-		volumes: 
-			- /data/nifi/cr:/opt/nifi/nifi-current/content_repository:z
-			- /data/nifi/pr:/opt/nifi/nifi-current/provenance_repository:z
-			- /data/nifi/fr:/opt/nifi/nifi-current/flowfile_repository:z
-			- /data/nifi/dr:/opt/nifi/nifi-current/database_repository:z
-			- /data/nifi/logs:/opt/nifi/nifi-current/logs:z
-		depends_on:
-			- nifi-ca
-		networks:
-			nifinet:
-				aliases:
-					- dkrypt-nifi
-			deploy:
-				mode: replicated
-				replicas: 1
-	rp-nginx:
-		image: nginx:1.20.0
-		hostname: rp-nginx
-		ports:
-			- "80:80"
-			- "443:443"
-		volumes:
-			- /data/rp-nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
-			- /data/rp-nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
-			- /data/rp-nginx/conf/nginx.crt:/etc/nginx/nginx.crt:ro
-			- /data/rp-nginx/conf/nginx.key:/etc/nginx/nginx.key:ro
-			- /data/rp-nginx/log:/var/log/nginx:z
-		depends_on:
-			- dkrypt-nifi
-			- nifi-ca
-		networks:
-			- nifinet
-		deploy:
-			mode: replicated
-			replicas: 1
+    image: dkrypt-nifi:1.0.0
+    hostname: dkrypt-nifi
+    ports:
+      - "18443:8443"
+      - "10080:80"
+    environment:
+      NIFI_JVM_HEAP_INIT: 512m
+      NIFI_JVM_HEAP_MAX: 512m
+      NIFI_WEB_HTTPS_PORT: 8443
+      NIFI_WEB_HTTPS_HOST: dkrypt-nifi
+      NIFI_WEB_PROXY_HOST: "dkrypt-nifi, localhost"
+      NIFI_REMOTE_INPUT_HOST: dkrypt-nifi
+      NIFI_REMOTE_INPUT_SOCKET_PORT: 1026
+      NIFI_CLUSTER_LB_PORT: 6342
+      NIFI_CLUSTER_IS_NODE: 'true'
+      NIFI_CLUSTER_ADDRESS: dkrypt-nifi
+      NIFI_CLUSTER_NODE_PROTOCOL_PORT: 9001
+      NIFI_ZK_CONNECT_STRING: dkrypt-nifi:2181
+      NIFI_ZK_ROOT_NODE: /nifi
+      NIFI_ELECTION_MAX_WAIT: "1 mins"
+      NIFI_ELECTION_MAX_CANDIDATES: 1
+      NIFI_STATE_MANAGEMENT_PROVIDER_LOCAL: local-provider
+      NIFI_STATE_MANAGEMENT_PROVIDER_CLUSTER: zk-provider
+      NIFI_STATE_MANAGEMENT_EMBEDDED_ZK_START: 'true'
+      NIFI_STATE_MANAGEMENT_EMBEDDED_ZK_PROPERTIES: ./conf/zookeeper.properties
+      NIFI_SENSITIVE_PROPS_KEY: sample-key
+      NIFI_SENSITIVE_PROPS_ALGO: NIFI_PBKDF2_AES_GCM_256
+      NIFI_SENSITIVE_PROPS_PROVIDER: BC
+      AUTH: oidc
+      NIFI_NODE_CERTS_DIR: /opt/nifi/nifi-current/node-certs
+      NIFI_CA_SERVER_HOST: nifi-ca
+      NIFI_CA_SERVER_PORT: 9999
+      NIFI_CA_TOKEN: token-tls-toolkit
+      CA_SANS: "localhost, 127.0.0.1, dkrypt-nifi"
+      SECURITY_USER_OIDC_DISCOVERY_URL: https://accounts.google.com/.well-known/openid-configuration
+      SECURITY_USER_OIDC_CONNECT_TIMEOUT: "10 secs"
+      SECURITY_USER_OIDC_READ_TIMEOUT: "10 secs"
+      SECURITY_USER_OIDC_CLIENT_ID: sample-google-client-id
+      SECURITY_USER_OIDC_CLIENT_SECRET: "sample-google-client-secret"
+      SECURITY_USER_OIDC_SCOPES: email
+      INITAL_ADMIN_IDENTITY: "email@gmail.com"
+      NODE_IDENTITIES: "dkrypt-nifi"
+    volumes: 
+      - /data/nifi/cr:/opt/nifi/nifi-current/content_repository:z
+      - /data/nifi/pr:/opt/nifi/nifi-current/provenance_repository:z
+      - /data/nifi/fr:/opt/nifi/nifi-current/flowfile_repository:z
+      - /data/nifi/dr:/opt/nifi/nifi-current/database_repository:z
+      - /data/nifi/logs:/opt/nifi/nifi-current/logs:z
+    depends_on:
+      - nifi-ca
+    networks:
+      nifinet:
+        aliases:
+          - dkrypt-nifi
+      deploy:
+        mode: replicated
+        replicas: 1
+  rp-nginx:
+    image: nginx:1.20.0
+    hostname: rp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /data/rp-nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /data/rp-nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /data/rp-nginx/conf/nginx.crt:/etc/nginx/nginx.crt:ro
+      - /data/rp-nginx/conf/nginx.key:/etc/nginx/nginx.key:ro
+      - /data/rp-nginx/log:/var/log/nginx:z
+    depends_on:
+      - dkrypt-nifi
+      - nifi-ca
+    networks:
+      - nifinet
+    deploy:
+      mode: replicated
+      replicas: 1
 networks:
-	nifinet:
-		driver: overlay
+  nifinet:
+    driver: overlay
